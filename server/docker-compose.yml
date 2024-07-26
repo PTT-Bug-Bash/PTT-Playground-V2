@@ -1,0 +1,45 @@
+version: "3.9"
+services:
+  db:
+    image: postgis/postgis:11-3.3-alpine
+    ports:
+      - "5432:5432"
+    
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=ar_db
+    command: postgres -c 'listen_addresses=*'
+  web:
+    build:
+      context: ..
+      dockerfile: ./server/Dockerfile
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    
+    depends_on:
+      - db
+    # command: npm run migrate
+    # restart: on-failure
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=pgadmin4@pgadmin.org
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+     - '3000:3000'
+    depends_on:
+      - db
+
+  

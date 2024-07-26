@@ -1,0 +1,35 @@
+version: "2.3"
+
+services:
+  db:
+    image: postgis/postgis:11.3.3-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=ar_db
+    command: postgres -c listen_+addresses='*'
+  web:
+    build:
+      context: .
+      dockerfile: Prod.Dockerfile
+    volumes: 
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    restart: unless-stopped
+    mem_limit: 256m
+    mem_reservation: 128M
+    cpus: 0.3
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+     - '3000:3000'
+ 

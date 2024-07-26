@@ -1,0 +1,94 @@
+Resources:
+  ARServer:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.medium
+      ImageId: ami-0b6edd8449255b799
+      KeyName: AR_Server_PEM
+      SecurityGroupIds:
+        - !Ref ARServerSG
+      UserData: !Base64 | 
+        #!/bin/bash
+        sudo apt-get update
+        echo Y | sudo apt-get install ca-certificates curl gnupg
+        sudo install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+        sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+        # Add the repository to Apt sources:
+        echo \
+          "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+          "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+          sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        sudo apt-get update
+
+        echo Y | sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        sudo apt-get update
+
+        sudo systemctl start docker
+
+        export HOME=/home/admin
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+        source ~/.bashrc
+        source ~/.nvm/nvm.sh
+        export NVM_DIR="$HOME/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+        [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+        nvm install --lts
+
+        pwd
+        cd ~
+        git clone https://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@github.com/Athlete-Reserve/Athlete-Reserve-App.git
+        cd Athlete-Reserve-App
+        git status
+      Tags:
+        - Key: Name
+          Value: ARServer
+  DBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      EngineVersion: '15.4'
+      DBName: ARDB
+      DBParameterGroupName: 
+        Ref: RDSDBParameterGroup
+      MasterUsername: postgres
+      MasterUserPassword: ARAdmin23
+      AllocatedStorage: '20'
+      DBSecurityGroups:
+        - Ref: ARDBSG
+      Tags:
+        - Key: Name
+          Value: AR-DB
+  RDSDBParameterGroup:
+    Type: 'AWS::RDS::DBParameterGroup'
+    Properties:
+      Description: CloudFormation ARDB Parameter Group
+      Family: postgres15
+      Parameters:
+        rds.force_ssl: 0
+  ARDBSG:
+    Type: AWS::RDS::DBSecurityGroup
+    Properties:
+      DBSecurityGroupIngress:
+        EC2SecurityGroupName: 
+          Ref: ARServerSG
+      GroupDescription: Security group for EC2 Access to AR DB
+  ARServerSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the AR Server
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          CidrIp: '0.0.0.0/0'
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0

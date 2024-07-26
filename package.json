@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@aws-sdk/client-ses": "^3.554.0",
+    "@react-email/render": "^0.0.12",
+    "react-multi-carousel": "^2.8.4",
+    "semantic-ui-react": "^2.1.4"
+  }
+}
