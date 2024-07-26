@@ -109,6 +109,7 @@ jobs:
               COMMIT_HASH=${{ github.sha }}
               sbom_content=$(jq -c '.' "$dirname/${bom_filename}.json")
 
+              echo $sbom_content
               echo "Uploading ${bom_filename}.json"
               response=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $SEMGREP_APP_TOKEN" -H "Content-Type: application/json" \
                 -d "{\"repository_name\":\"$REPO_NAME\", \"commit_hash\":\"$COMMIT_HASH\", \"manifest_path\":\"$filepath\", \"sbom\": $sbom_content}" \
