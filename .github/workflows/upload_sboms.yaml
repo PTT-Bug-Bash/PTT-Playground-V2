@@ -127,7 +127,7 @@ jobs:
               # Encode compressed SBOM in base64
               # sbom_content=$(base64 -w 0 "$dirname/${bom_filename}.json.gz")
               # sbom_content=$(jq -c '.' "$dirname/${bom_filename}.json")
-              sbom_content=$(jq -Rs . < "$dirname/${bom_filename}.json" | sed 's/^"//' | sed 's/"$//')
+              sbom_content=$(jq -Rs . < "$dirname/${bom_filename}.json")
 
               # Upload immediately after parsing
               REPO_NAME=${{ github.repository }}
@@ -142,7 +142,7 @@ jobs:
 
               # Prepare JSON payload
               payload_file="$dirname/${bom_filename}.json.payload"
-              echo "{\"repository_name\":\"$REPO_NAME\", \"commit_hash\":\"$COMMIT_HASH\", \"manifest_path\":\"$filepath\", \"sbom\":\"$sbom_content\"}" > "$payload_file"
+              echo "{\"repository_name\":\"$REPO_NAME\", \"commit_hash\":\"$COMMIT_HASH\", \"manifest_path\":\"$filepath\", \"sbom\":$sbom_content}" > "$payload_file"
 
               # Log the payload file size
               payload_size=$(stat --format="%s" "$payload_file")
