@@ -1,17 +1,18 @@
-name: Generate and Upload SBOMs
+name: Generate and Upload SBOMs for Pull Requests
 on:
-  workflow_dispatch:
   pull_request:
     branches:
       - main
 
 jobs:
-  ptt-upload-sbom:
+  ptt-upload-sbom-pr:
     runs-on: ubuntu-latest
 
     env:
       SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
       SEMGREP_APP_URL: ${{ secrets.SEMGREP_APP_URL }}
+      REPO_NAME: ${{ github.repository }}
+      COMMIT_HASH: ${{ github.event.pull_request.head.sha }}
 
     steps:
       - name: Checkout repository
@@ -59,6 +60,7 @@ jobs:
             echo alternate_filename: $alternate_filename
 
             find . -type f -name "$filename" ! -path "*/node_modules/*" ! -path "*/.venv/*" ! -path "*/.tox/*" ! -path "*/build/*" ! -path "*/dist/*" -exec sh -c '
+
               url_encode() {
                 local string="$1"
                 echo "$string" | jq -sRr @uri
@@ -77,6 +79,7 @@ jobs:
                   mv "$1.bak" "$1"
                 fi
               }
+
 
               filepath="$1"
               dirname=$(dirname "$filepath")
@@ -121,24 +124,9 @@ jobs:
               fi
 
 
-              # Compress SBOM
-              # gzip -c "$dirname/${bom_filename}.json" > "$dirname/${bom_filename}.json.gz"
-
-              # Encode compressed SBOM in base64
-              # sbom_content=$(base64 -w 0 "$dirname/${bom_filename}.json.gz")
-              # sbom_content=$(jq -c '.' "$dirname/${bom_filename}.json")
+              # Read the SBOM content
               sbom_content=$(jq -Rs . < "$dirname/${bom_filename}.json")
-
-              # Upload immediately after parsing
-              REPO_NAME=${{ github.repository }}
-              COMMIT_HASH=${{ github.event.pull_request.head.sha }}
-
-              # SBOM SAY WHAT?
-              echo "SBOM CONTENT"
-              cat $dirname/${bom_filename}.json
-              # echo "SBOM ENCODED"
-              # echo $sbom_content
-              
+              echo "SBOM content: $sbom_content"
 
               # Prepare JSON payload
               payload_file="$dirname/${bom_filename}.json.payload"
