@@ -136,28 +136,16 @@ jobs:
                 if echo "$fixed_value" | jq empty > /dev/null 2>&1; then
                   echo "$fixed_value" | jq . > "dependency_data_${{ github.event.pull_request.head.sha }}__threshold_LICENSE_POLICY_SETTING_ALLOW.json"
                 else
-                  echo "ERROR: Parsed value is not valid JSON:"
-                  
-                  # Check if there are specific errors and report them
-                  echo "$fixed_value" | jq . > /dev/null 2>&1
-                  if [ $? -ne 0 ]; then
-                    echo "Attempting to validate the JSON structure..."
-                    echo "$fixed_value" | jq . 2>&1 | tee error_details.txt
-                    echo "Details of the JSON parsing error have been saved to error_details.txt"
-                  fi
-                  
-                  # Display the full, unparsed JSON for manual inspection
-                  echo "Here is the problematic JSON segment:"
+                  echo "ERROR: Parsed value is not a valid JSON:"
                   cat result.json
-                  
-                  # exit 1
+                  exit 1
                 fi
 
                 break
               else
                 echo "Task not successful."
                 cat result.json
-                # exit 1
+                exit 1
               fi
             else
               echo "Task still processing. Waiting 5 seconds..."
@@ -169,6 +157,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: scan-results
-          path: |
-            dependency_data_${{ github.event.pull_request.head.sha }}__threshold_LICENSE_POLICY_SETTING_ALLOW.json
-            error_details.txt
+          path: dependency_data_${{ github.event.pull_request.head.sha }}__threshold_LICENSE_POLICY_SETTING_ALLOW.json
