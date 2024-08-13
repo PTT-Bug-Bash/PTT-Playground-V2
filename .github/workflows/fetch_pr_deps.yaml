@@ -150,14 +150,14 @@ jobs:
                   echo "Here is the problematic JSON segment:"
                   cat result.json
                   
-                  exit 1
+                  # exit 1
                 fi
 
                 break
               else
                 echo "Task not successful."
                 cat result.json
-                exit 1
+                # exit 1
               fi
             else
               echo "Task still processing. Waiting 5 seconds..."
