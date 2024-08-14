@@ -1,21 +1,18 @@
-name: Generate and Upload SBOMs
-
+name: Generate and Upload SBOMs for Pull Requests
 on:
-  workflow_dispatch:
-  push:
+  pull_request:
     branches:
       - main
-      - master
 
 jobs:
-  ptt-upload-sbom-default-branch:
+  ptt-upload-sbom-pr:
     runs-on: ubuntu-latest
 
     env:
       SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
       SEMGREP_APP_URL: ${{ secrets.SEMGREP_APP_URL }}
       REPO_NAME: ${{ github.repository }}
-      COMMIT_HASH: ${{ github.sha }}
+      COMMIT_HASH: ${{ github.event.pull_request.head.sha }}
 
     steps:
       - name: Checkout repository
