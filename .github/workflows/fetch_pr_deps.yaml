@@ -11,6 +11,7 @@ jobs:
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      LICENSE_POLICY_THRESHOLD: LICENSE_POLICY_SETTING_ALLOW
       JOB_NAMES: ptt-upload-sbom-pr,semgrep/ci
 
     steps:
@@ -66,9 +67,8 @@ jobs:
         id: api-call-start-task
         env:
           SEMGREP_APP_URL: ${{ secrets.SEMGREP_APP_URL }}
-          LICENSE_POLICY_THRESHOLD: "LICENSE_POLICY_SETTING_ALLOW"
-          DEPLOYMENT_ID: 408 # 408 for local testing with ngrok
-          REPOSITORY_ID: 7696 # 7695 for local testing with ngrok 
+          DEPLOYMENT_ID: 408
+          REPOSITORY_ID: 7696
         run: |
           retry_count=0
           max_retries=5
@@ -134,7 +134,7 @@ jobs:
 
                 # Check if fixed_value is valid JSON
                 if echo "$fixed_value" | jq empty > /dev/null 2>&1; then
-                  echo "$fixed_value" | jq . > "dependency_data_${{ github.event.pull_request.head.sha }}__threshold_LICENSE_POLICY_SETTING_ALLOW.json"
+                  echo "$fixed_value" | jq . > "dependency_data_${{ github.event.pull_request.head.sha }}__threshold_${{ env.LICENSE_POLICY_THRESHOLD }}.json"
                 else
                   echo "ERROR: Parsed value is not a valid JSON:"
                   cat result.json
@@ -157,4 +157,4 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: scan-results
-          path: dependency_data_${{ github.event.pull_request.head.sha }}__threshold_LICENSE_POLICY_SETTING_ALLOW.json
+          path: dependency_data_${{ github.event.pull_request.head.sha }}__threshold_${{ env.LICENSE_POLICY_THRESHOLD }}.json
