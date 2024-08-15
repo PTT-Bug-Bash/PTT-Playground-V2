@@ -2,23 +2,33 @@ name: Generate and Upload SBOMs
 
 on:
   workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: "Use a different commit than the one on develop to generate SBOMs"
+        required: false
   pull_request: {}
   push:
     branches:
       - main
       - master
+    paths:
+      - .github/workflows/semgrep.yml
 
 jobs:
-  ptt-upload-sbom:
+  ptt-upload-sbom-default-branch:
     runs-on: ubuntu-latest
 
     env:
       SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+      REPO_NAME: ${{ github.repository }}
+      COMMIT_HASH: ${{ github.event.inputs.commit_sha || github.sha }}
       SEMGREP_APP_URL: https://f156-73-63-172-114.ngrok-free.app
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+        with:
+          ref: ${{ env.COMMIT_HASH }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -56,31 +66,43 @@ jobs:
             local filetype="$1"
             local filename="$2"
             local alternate_filename="$3"
+
+            echo filetype: $filetype
+            echo filename: $filename
+            echo alternate_filename: $alternate_filename
+
             find . -type f -name "$filename" ! -path "*/node_modules/*" ! -path "*/.venv/*" ! -path "*/.tox/*" ! -path "*/build/*" ! -path "*/dist/*" -exec sh -c '
+
               url_encode() {
                 local string="$1"
                 echo "$string" | jq -sRr @uri
               }
+
               swap_files() {
                 if [ -f "$1" ] && [ -f "$2" ]; then
                   mv "$1" "$1.bak"
                   mv "$2" "$1"
                 fi
               }
+
               restore_files() {
                 if [ -f "$1.bak" ]; then
                   mv "$1" "$2"
                   mv "$1.bak" "$1"
                 fi
               }
+
+
               filepath="$1"
               dirname=$(dirname "$filepath")
               alt_filepath="$dirname/'"$alternate_filename"'"
+
               # Temporarily swap files if alternate file exist
               if [ -f "$alt_filepath" ]; then
                 echo "Temporarily swapping $filepath with $alt_filepath"
                 swap_files "$filepath" "$alt_filepath"
               fi
+
               # Install Python deps in a virtual environment
               # Improves performance over using the cdxgen created venv as per
               # https://github.com/CycloneDX/cdxgen/blob/bc6edcf136cc4039df92e1d4e9a0b45e23bc2595/index.js#L2878
@@ -90,47 +112,58 @@ jobs:
                 . "$dirname/venv/bin/activate"
                 pip install -r "$filepath"
               fi
+
               echo "Generating SBOM for $filepath"
               encoded_filepath=$(url_encode "$filepath")
+              echo encoded_filepath: $encoded_filepath
+
               bom_filename="semgrep-generated-sbom-${encoded_filepath}"
+              echo bom_filename: $bom_filename
+
               (cd "$dirname" && cdxgen -t '"$filetype"' -o "${bom_filename}.json")
+
               # Deactivate and remove virtual environment
               if [ '"$filetype"' = "python" ]; then
                 echo "Deactivating and removing virtual environment"
                 deactivate
                 rm -rf "$dirname/venv"
               fi
+
               # Restore original files after SBOM generation
               if [ -f "$alt_filepath" ]; then
                 echo "Restoring $filepath with $alt_filepath"
                 restore_files "$filepath" "$alt_filepath"
               fi
-              # Compress SBOM
-              gzip -c "$dirname/${bom_filename}.json" > "$dirname/${bom_filename}.json.gz"
-              # Encode compressed SBOM in base64
-              sbom_content=$(base64 -w 0 "$dirname/${bom_filename}.json.gz")
-              # Upload immediately after parsing
-              REPO_NAME=${{ github.repository }}
-              COMMIT_HASH=${{ github.sha }}
-              cat $dirname/${bom_filename}.json
+
+
+              # Read the SBOM content
+              sbom_content=$(jq -Rs . < "$dirname/${bom_filename}.json")
+              echo "SBOM content: $sbom_content"
+
               # Prepare JSON payload
               payload_file="$dirname/${bom_filename}.json.payload"
-              echo "{\"repository_name\":\"$REPO_NAME\", \"commit_hash\":\"$COMMIT_HASH\", \"manifest_path\":\"$filepath\", \"sbom\":\"$sbom_content\"}" > "$payload_file"
+              echo "{\"repository_name\":\"$REPO_NAME\", \"commit_hash\":\"$COMMIT_HASH\", \"manifest_path\":\"$filepath\", \"sbom\":$sbom_content}" > "$payload_file"
+
               # Log the payload file size
               payload_size=$(stat --format="%s" "$payload_file")
               echo "Payload file size: $payload_size bytes"
-              echo "Uploading ${bom_filename}.json.gz"
+
+
+              echo "Uploading ${bom_filename}.json"
               response=$(curl -v -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $SEMGREP_APP_TOKEN" -H "Content-Type: application/json" \
                 -d @"$payload_file" \
                 $SEMGREP_APP_URL/api/sca/dependencies/upload_dep_sboms)
+              echo "Response: $response"
               if [ "$response" -ne 200 ]; then
-                echo "Failed to upload ${bom_filename}.json.gz, received response code $response"
+                echo "Failed to upload ${bom_filename}.json, received response code $response"
                 exit 1
               fi
+
               # Clean up payload file
               rm "$payload_file"
             ' sh {} \;
           }
+
           generate_bom "python" "requirements.txt" "requirements.in"
           generate_bom "node" "package.json"
           generate_bom "gradle" "build.gradle"
